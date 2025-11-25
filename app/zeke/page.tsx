@@ -10,9 +10,10 @@ export default function ZekePage() {
   const [langMode, setLangMode] = useState<LangMode>('BILINGUAL');
   const [mission, setMission] = useState(
     [
-      'Give me a tight, high-signal briefing on this page and its surrounding context.',
+      'Give me a detailed, high-signal briefing on this page and its surrounding context.',
       "Assume I'm a senior engineer just joining the project.",
-      'Highlight: core idea, main tradeoffs, important numbers, and any risks.',
+      'Include: core idea, main tradeoffs, important numbers, key risks, and any missing info or TODOs.',
+      "It's okay if this is long; lean toward completeness over brevity.",
     ].join(' ')
   );
 
@@ -69,7 +70,7 @@ export default function ZekePage() {
 
     const prompt = buildZekePrompt(langMode, url, trimmedMission);
     setHasRun(true);
-    
+
     // Open results page in new window/tab
     const resultsUrl = `/zeke/results?prompt=${encodeURIComponent(prompt)}`;
     window.open(resultsUrl, '_blank');

@@ -10,9 +10,9 @@ export type ZekeMcpClients = {
 };
 
 function requireZaiKey() {
-  const key = process.env.Z_AI_API_KEY;
+  const key = process.env.Z_AI_API_KEY || process.env.ZAI_API_KEY;
   if (!key) {
-    throw new Error('Missing Z_AI_API_KEY – set it in your .env.local');
+    throw new Error('Missing Z_AI_API_KEY or ZAI_API_KEY – set it in your .env.local');
   }
   return key;
 }

@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 const zai = createOpenAICompatible({
   name: 'zai-coding-plan',
-  apiKey: process.env.Z_AI_API_KEY,
+  apiKey: process.env.Z_AI_API_KEY || process.env.ZAI_API_KEY,
   baseURL: process.env.ZEKE_GLMPROXY_URL
     ? `${process.env.ZEKE_GLMPROXY_URL}/v1`
     : 'https://api.z.ai/api/coding/paas/v4',
@@ -25,9 +25,9 @@ async function callZaiMcpEndpoint(
   url: string,
   body: Record<string, any>
 ): Promise<any> {
-  const apiKey = process.env.Z_AI_API_KEY;
+  const apiKey = process.env.Z_AI_API_KEY || process.env.ZAI_API_KEY;
   if (!apiKey) {
-    throw new Error('Z_AI_API_KEY is not set');
+    throw new Error('Z_AI_API_KEY or ZAI_API_KEY is not set');
   }
 
   console.log('[Zeke API] callZaiMcpEndpoint: calling', url, 'with body keys:', Object.keys(body));
@@ -182,14 +182,15 @@ export async function POST(req: NextRequest) {
   console.log('[Zeke API] Request URL:', req.url);
   console.log('[Zeke API] Request headers:', Object.fromEntries(req.headers.entries()));
 
-  if (!process.env.Z_AI_API_KEY) {
-    console.error('[Zeke API] ❌ Z_AI_API_KEY is not set');
+  const apiKey = process.env.Z_AI_API_KEY || process.env.ZAI_API_KEY;
+  if (!apiKey) {
+    console.error('[Zeke API] ❌ Z_AI_API_KEY or ZAI_API_KEY is not set');
     return NextResponse.json(
-      { error: 'Z_AI_API_KEY is not set', message: 'Please configure Z_AI_API_KEY in your environment variables' },
+      { error: 'Z_AI_API_KEY is not set', message: 'Please configure Z_AI_API_KEY or ZAI_API_KEY in your environment variables' },
       { status: 500 }
     );
   }
-  console.log('[Zeke API] ✅ Z_AI_API_KEY is set');
+  console.log('[Zeke API] ✅ API key is set');
 
   let prompt: string;
   try {
@@ -266,7 +267,8 @@ export async function POST(req: NextRequest) {
       model: zai('glm-4.6'),
       tools,
       // 🔥 UN-NERF: Set explicit token budget so responses don't get cut off early
-      maxOutputTokens: 4096, // Generous budget for detailed briefings (can bump to 8192 for "deep" mode)
+      // GLM-4.6 supports up to 128K output tokens, but we use 8192 for "deep" mode
+      maxOutputTokens: 8192, // Deep briefing mode - allows for comprehensive, multi-page briefings
       temperature: 0.35, // Slightly lower for more focused, consistent output
       // Add callback to track tool calls
       onStepFinish: async ({ text, toolCalls, toolResults, finishReason }) => {
@@ -320,18 +322,23 @@ export async function POST(req: NextRequest) {
         '   - zekeReader: fetch the main content for the target URL (or a top result if no URL is given).',
         '3. If the mission or URL mentions a local image or screenshot filename (like demo.png),',
         '   you MAY call image_analysis from the Vision MCP to add visual context.',
-        '4. Then generate a short, high-signal briefing.',
+        '4. Then generate a **detailed, comprehensive briefing**.',
         '',
         'OUTPUT RULES:',
+        '- Write a **detailed** briefing, not just a short summary.',
+        '- Include: core idea, main tradeoffs, important numbers, key risks, any missing info or TODOs.',
+        '- Aim for a few pages of content if necessary. Avoid being overly brief.',
         '- If LANG_MODE=BILINGUAL: output English first, then Simplified Chinese.',
         '- If LANG_MODE=EN: English only.',
         '- If LANG_MODE=ZH: Chinese only (简体中文).',
         '- Use clear sections:',
         '  1) Title',
-        '  2) One-sentence overview',
-        '  3) Key points (3–6 bullets)',
-        '  4) "Why it matters" (2–3 bullets)',
-        '  5) Optional "Next steps" (2–3 bullets for the user).',
+        '  2) Overview (can be multiple paragraphs)',
+        '  3) Key points (detailed bullets, 6–12+ items if relevant)',
+        '  4) "Why it matters" (detailed explanation, 3–5+ bullets)',
+        '  5) "Important numbers/metrics" (if applicable)',
+        '  6) "Risks and considerations" (if applicable)',
+        '  7) "Next steps" (detailed recommendations, 3–5+ bullets)',
         '',
         'Style constraints:',
         '- No slang that would sound unprofessional.',
